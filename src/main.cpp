@@ -10,7 +10,6 @@
 #define AP_PSK "plumbob-69420"
 #endif
 
-#define LED D0
 #define LED_COUNT 14
 #define CONTROL_PIN D1
 
@@ -25,10 +24,6 @@ char password[] = AP_PSK;
 ESP8266WebServer server(80);
 
 const uint8_t slider_val = 255;
-
-IPAddress Ip(192,168,7,2);
-IPAddress Gateway(192,168,7,1);
-IPAddress Subnet(255,255,255,0);
 
 CRGBArray<LED_COUNT> leds;
 uint8_t brightness = 50;
@@ -57,7 +52,6 @@ void handleNotFound() {
 }
  
 void setup() {
-  pinMode(LED, OUTPUT);
   Serial.begin(9600);
   LEDS.setBrightness(brightness);
   LEDS.addLeds<WS2812B, CONTROL_PIN, GRB>(leds, LED_COUNT);
@@ -85,11 +79,6 @@ void setup() {
 }
 
 void loop() {
-  digitalWrite(LED, HIGH);
-  delay(1000);
-  digitalWrite(LED, LOW);
-  delay(1000);
-
   for (int i = 0; i++; i < LED_COUNT) {
     leds[i] = CRGB(0 + slider_val, 255 - slider_val, 0);
     FastLED.show();
