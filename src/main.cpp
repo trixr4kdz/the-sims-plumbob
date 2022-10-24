@@ -4,10 +4,16 @@
 #include <ESPAsyncWebServer.h>
 #include <ESPAsyncTCP.h>
 
+AsyncWebServer server(80);
+
+// Set Access Point creds
 #ifndef AP_SSID
 #define AP_SSID "trix-sims"
 #define AP_PSK "plumbob-69420"
 #endif
+
+char ssid[] = AP_SSID;
+char password[] = AP_PSK;
 
 #define CONTROL_PIN D1
 
@@ -18,17 +24,13 @@
 // TODO: add brightness input
 // TODO: add effects? (like spinning diamond)
 
-char ssid[] = AP_SSID;
-char password[] = AP_PSK;
-
 const int LED_COUNT = 14;
 
-AsyncWebServer server(80);
-
-uint8_t slider_val = 0;
+uint8_t slider_val = 120;
 uint8_t num_clients = 0;
 
 const char* SLIDER_INPUT = "slider";
+bool powered_on = true;
 
 CRGBArray<LED_COUNT> leds;
 uint8_t brightness = 100;
@@ -43,6 +45,32 @@ void handleNotFound(AsyncWebServerRequest *req) {
   digitalWrite(CONTROL_PIN, HIGH);
   req->send(404, "text/plain", "Page does not exist");
   digitalWrite(CONTROL_PIN, LOW);
+}
+
+void powerOn() {
+  for (int i = 0; i < LED_COUNT; i++) {
+    leds[i] = CRGB(0 + slider_val, 255 - slider_val, 0);
+  }  
+  FastLED.show();
+  delay(500);
+}
+
+void powerOff() {
+  for (int i = 0; i < LED_COUNT; i++) {
+    leds[i] = CRGB::Black;
+  }  
+  FastLED.show();
+  delay(500);
+}
+
+void handlePowerState(AsyncWebServerRequest *req) {
+  // TODO: turn on LEDs via button
+  if (!powered_on) {
+    powerOff();
+  } else {
+    // TODO: Turn off LEDs via button
+    powerOn();
+  }
 }
 
 const char index_html[] PROGMEM = R"rawliteral(
@@ -83,9 +111,11 @@ void setup() {
   Serial.print("IP address: \t");
   Serial.println(WiFi.softAPIP());
 
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *req){
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *req) {
     req->send_P(200, "text/html", index_html);
   });
+
+  server.on("/power", handlePowerState);
 
   server.on("/update", HTTP_GET, [](AsyncWebServerRequest *req){
     // slider_val = req->getParam("slider")->value().toInt();
@@ -111,11 +141,7 @@ void setup() {
 }
 
 void loop() {
-  for (int i = 0; i < LED_COUNT; i++) {
-    leds[i] = CRGB(0 + slider_val, 255 - slider_val, 0);
-    FastLED.show();
-    delay(20);
-  }       
+  powerOn();   
 
   int connections = WiFi.softAPgetStationNum();
   Serial.println(connections);
