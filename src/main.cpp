@@ -26,6 +26,7 @@ WiFiEventHandler stationDisconnectedHandler;
 // TODO: get slider input from slider component
 // TODO: add brightness input
 // TODO: add effects? (like spinning diamond)
+// TODO: add label for number of clients
 
 const int LED_COUNT = 14;
 
@@ -56,7 +57,7 @@ void powerOn() {
     leds[i] = CRGB(0 + slider_val, 255 - slider_val, 0);
   }  
   FastLED.show();
-  delay(500);
+  delay(100);
 }
 
 void powerOff() {
@@ -64,7 +65,7 @@ void powerOff() {
     leds[i] = CRGB::Black;
   }  
   FastLED.show();
-  delay(500);
+  delay(100);
 }
 
 void handlePowerState(AsyncWebServerRequest *req) {
@@ -96,13 +97,12 @@ const char index_html[] PROGMEM = R"rawliteral(
       <input type="checkbox" id="powerState" name="powerState" checked onchange="togglePower(this)" />
       <label for="powerState">Power: </label>
     </p><br>
-    <form action="/get">
-      <input type="range" name="slider" min="0" max="255" value="0" onchange="handleSlider(this)" />
-      <label for="slider">Slider</label><br>
+    <input type="range" name="slider" min="0" max="255" step="5" value="0" onchange="handleSlider(this)" />
+    <label for="slider">Slider</label><br>
 
-      <span name="num_clients"></span>
-      <label for="num_clients">Clients: </label>
-    </form><br>
+    <span name="num_clients"></span>
+    <label for="num_clients">Clients: </label>
+    <br>
     <script>
       function togglePower(e) {
         var xhr = new XMLHttpRequest();
@@ -145,7 +145,7 @@ void setup() {
   LEDS.setBrightness(brightness);
   LEDS.addLeds<WS2812B, CONTROL_PIN, GRB>(leds, LED_COUNT);
   LEDS.show();
-  delay(500);
+  delay(1000);
   Serial.println('\n');
 
   WiFi.softAP(AP_SSID, AP_PSK, 1, false, 2);
@@ -161,40 +161,32 @@ void setup() {
   // Call "onStationDisconnected" each time a station disconnects
   stationDisconnectedHandler = WiFi.onSoftAPModeStationDisconnected(&onStationDisconnected);
 
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *req) {
-    req->send_P(200, "text/html", index_html);
-  });
-
-  server.on("/power", HTTP_GET, handlePowerState);
-
-  server.on("/color", HTTP_GET, [](AsyncWebServerRequest *req){
-    // TODO: Fix this crashing too...
-    String val;
-    String param;
-    val = req->getParam(SLIDER_INPUT)->value();
-    param = SLIDER_INPUT;
-
-    Serial.print(param + ":");
-    Serial.println(val);
-
-    slider_val = req->getParam("slider")->value().toInt();
-    powerOn();
-  });
-
   server.onNotFound(handleNotFound);
 
   server.begin();
   Serial.println("HTTP server started\n");
   powerOn();
+
+  // int connections = WiFi.softAPgetStationNum();
+  // Serial.println(connections);
+  // delay(1000);
+
+  // Set up routes
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *req) {
+    req->send_P(200, "text/html", index_html);
+    Serial.println("landing");
+  });
+
+  server.on("/power", HTTP_GET, handlePowerState);
+
+  server.on("/color", HTTP_GET, [](AsyncWebServerRequest *req){
+    // TODO: Fix this slider changing multiple times...
+    slider_val = req->getParam(SLIDER_INPUT)->value().toInt();
+    Serial.println(slider_val);
+    powerOn();
+  });
 }
 
-void loop() {
-  // powerOn();   
-
-  int connections = WiFi.softAPgetStationNum();
-  Serial.println(connections);
-  Serial.println(slider_val);
-  delay(1000);
-}
+void loop() {}
 
 // Ref: https://randomnerdtutorials.com/esp8266-nodemcu-async-web-server-espasyncwebserver-library/
