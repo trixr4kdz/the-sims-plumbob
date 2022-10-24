@@ -15,6 +15,9 @@ AsyncWebServer server(80);
 char ssid[] = AP_SSID;
 char password[] = AP_PSK;
 
+WiFiEventHandler stationConnectedHandler;
+WiFiEventHandler stationDisconnectedHandler;
+
 #define CONTROL_PIN D1
 
 // TODO: send slider input from Blynk App? to esp32
@@ -26,11 +29,12 @@ char password[] = AP_PSK;
 
 const int LED_COUNT = 14;
 
-uint8_t slider_val = 120;
+uint8_t slider_val = 0;
 uint8_t num_clients = 0;
 
 const char* SLIDER_INPUT = "slider";
-bool powered_on = true;
+const char* POWER_INPUT = "powerState";
+bool poweredOn = true;
 
 CRGBArray<LED_COUNT> leds;
 uint8_t brightness = 100;
@@ -64,13 +68,20 @@ void powerOff() {
 }
 
 void handlePowerState(AsyncWebServerRequest *req) {
-  // TODO: turn on LEDs via button
-  if (!powered_on) {
-    powerOff();
-  } else {
-    // TODO: Turn off LEDs via button
-    powerOn();
+  // TODO: Fix the crashing when toggling
+  int powerVal;
+  if (req->hasParam(POWER_INPUT)) {
+    powerVal = req->getParam(POWER_INPUT)->value().toInt();
+    poweredOn = powerVal == 1;
+    if (!poweredOn) {
+      powerOff();
+    } else {
+      powerOn();
+    }
   }
+  Serial.print("poweredOn: ");
+  Serial.println(poweredOn);
+  req->send(200, "text/plain", "OK");
 }
 
 const char index_html[] PROGMEM = R"rawliteral(
@@ -81,19 +92,53 @@ const char index_html[] PROGMEM = R"rawliteral(
   </head>
   <body>
     <h2>The Sims Plumbob LED Controller</h2>
+    <p>
+      <input type="checkbox" id="powerState" name="powerState" checked onchange="togglePower(this)" />
+      <label for="powerState">Power: </label>
+    </p><br>
     <form action="/get">
-      <input type="range" name="slider" min="0" max="255" value="0">
+      <input type="range" name="slider" min="0" max="255" value="0" onchange="handleSlider(this)" />
       <label for="slider">Slider</label><br>
 
       <span name="num_clients"></span>
       <label for="num_clients">Clients: </label>
     </form><br>
-  <script>
-    var xhr = new XMLHttpRequest();
-  </script>
+    <script>
+      function togglePower(e) {
+        var xhr = new XMLHttpRequest();
+        if (e.checked) {
+          xhr.open("GET", "/power?powerState=1", true);
+        } else {
+          xhr.open("GET", "/power?powerState=0", true);
+        }
+        xhr.send();
+      }
+
+      function handleSlider(e) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "/color?slider=" + e.value, true);
+        xhr.send();
+      }
+    </script>
   </body>
 </html>)rawliteral";
  
+String macToString(const unsigned char* mac) {
+  char buf[20];
+  snprintf(buf, sizeof(buf), "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  return String(buf);
+}
+
+void onStationConnected(const WiFiEventSoftAPModeStationConnected& evt) {
+  Serial.print("Station connected: ");
+  Serial.println(macToString(evt.mac));
+}
+
+void onStationDisconnected(const WiFiEventSoftAPModeStationDisconnected& evt) {
+  Serial.print("Station disconnected: ");
+  Serial.println(macToString(evt.mac));
+}
+
 void setup() {
   pinMode(CONTROL_PIN, OUTPUT);
   Serial.begin(9600);
@@ -111,37 +156,40 @@ void setup() {
   Serial.print("IP address: \t");
   Serial.println(WiFi.softAPIP());
 
+  // Call "onStationConnected" each time a station connects
+  stationConnectedHandler = WiFi.onSoftAPModeStationConnected(&onStationConnected);
+  // Call "onStationDisconnected" each time a station disconnects
+  stationDisconnectedHandler = WiFi.onSoftAPModeStationDisconnected(&onStationDisconnected);
+
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *req) {
     req->send_P(200, "text/html", index_html);
   });
 
-  server.on("/power", handlePowerState);
+  server.on("/power", HTTP_GET, handlePowerState);
 
-  server.on("/update", HTTP_GET, [](AsyncWebServerRequest *req){
-    // slider_val = req->getParam("slider")->value().toInt();
+  server.on("/color", HTTP_GET, [](AsyncWebServerRequest *req){
+    // TODO: Fix this crashing too...
     String val;
     String param;
     val = req->getParam(SLIDER_INPUT)->value();
     param = SLIDER_INPUT;
 
+    Serial.print(param + ":");
     Serial.println(val);
-    Serial.println(param);
-  });
 
-  server.on("/test", HTTP_GET, [](AsyncWebServerRequest *req) {
-    req->send(200, "text/plain", "test");
-    Serial.print("slider_val: ");
-    Serial.println(slider_val);
+    slider_val = req->getParam("slider")->value().toInt();
+    powerOn();
   });
 
   server.onNotFound(handleNotFound);
 
   server.begin();
   Serial.println("HTTP server started\n");
+  powerOn();
 }
 
 void loop() {
-  powerOn();   
+  // powerOn();   
 
   int connections = WiFi.softAPgetStationNum();
   Serial.println(connections);
