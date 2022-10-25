@@ -20,6 +20,7 @@ char password[] = AP_PSK;
 
 WiFiEventHandler stationConnectedHandler;
 WiFiEventHandler stationDisconnectedHandler;
+uint8_t connections = 0;
 
 #define CONTROL_PIN D1
 
@@ -33,8 +34,11 @@ uint8_t num_clients = 0;
 uint8_t brightness = 100;
 
 bool poweredOn = true;
+bool leftAlone = false;
 
 CRGBArray<LED_COUNT> leds;
+
+long currentTime;
 
 void handleHome(AsyncWebServerRequest *req) {
   digitalWrite(CONTROL_PIN, HIGH);
@@ -108,6 +112,11 @@ const char index_html[] PROGMEM = R"rawliteral(
 
       <input type="range" class="slider" name="brightness" min="0" max="100" value="100" onchange="handleBrightness(this)" />
       <label for="brightness">Brightness</label><br>
+
+      <form>
+        <input type="text" name="interval" placeholder="30 min" />
+        <input type="submit" value="Submit" />
+      </form>
     </div>
     <script>
       function togglePower(e) {
@@ -144,11 +153,13 @@ String macToString(const unsigned char* mac) {
 }
 
 void onStationConnected(const WiFiEventSoftAPModeStationConnected& evt) {
+  connections++;
   Serial.print("Station connected: ");
   Serial.println(macToString(evt.mac));
 }
 
 void onStationDisconnected(const WiFiEventSoftAPModeStationDisconnected& evt) {
+  connections--;
   Serial.print("Station disconnected: ");
   Serial.println(macToString(evt.mac));
 }
@@ -195,7 +206,10 @@ void setup() {
   server.on("/color", HTTP_GET, [](AsyncWebServerRequest *req){
     if (req->hasParam("value")) {
       color_val = req->getParam("value")->value().toInt();
-      powerOn();
+      if (poweredOn) {
+        powerOn();
+      }
+      leftAlone = false;
     }
 
     if (DEBUG_MODE) {
@@ -217,6 +231,11 @@ void setup() {
     req->send(200, "text/plain", "OK");
   });
 
+  server.on("/get", HTTP_GET, [](AsyncWebServerRequest *req){
+
+    req->send(200, "text/plain", "OK");
+  });
+
   server.begin();
   powerOn();
 
@@ -225,6 +244,14 @@ void setup() {
   }
 }
 
-void loop() {}
+void loop() {
+  currentTime = millis();
+  if (leftAlone) {
+    if (DEBUG_MODE) {
+      Serial.println("Left Alone");
+    }
+
+  }
+}
 
 // Ref: https://randomnerdtutorials.com/esp8266-nodemcu-async-web-server-espasyncwebserver-library/
