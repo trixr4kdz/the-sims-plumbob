@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
-#include <FastLED.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPAsyncTCP.h>
+#include <FastLED.h>
 
 AsyncWebServer server(80);
 
@@ -20,25 +20,18 @@ WiFiEventHandler stationDisconnectedHandler;
 
 #define CONTROL_PIN D1
 
-// TODO: send slider input from Blynk App? to esp32
-// TODO: set up client for phones
-// TODO: add button for power on/off
-// TODO: get slider input from slider component
-// TODO: add brightness input
 // TODO: add effects? (like spinning diamond)
 // TODO: add label for number of clients
 
-const int LED_COUNT = 14;
+const int LED_COUNT = 13;
 
-uint8_t slider_val = 0;
+uint8_t color_val = 0;
 uint8_t num_clients = 0;
+uint8_t brightness = 100;
 
-const char* SLIDER_INPUT = "slider";
-const char* POWER_INPUT = "powerState";
 bool poweredOn = true;
 
 CRGBArray<LED_COUNT> leds;
-uint8_t brightness = 100;
 
 void handleHome(AsyncWebServerRequest *req) {
   digitalWrite(CONTROL_PIN, HIGH);
@@ -54,10 +47,10 @@ void handleNotFound(AsyncWebServerRequest *req) {
 
 void powerOn() {
   for (int i = 0; i < LED_COUNT; i++) {
-    leds[i] = CRGB(0 + slider_val, 255 - slider_val, 0);
+    leds[i] = CRGB(0 + color_val, 255 - color_val, 0);
   }  
   FastLED.show();
-  delay(100);
+  delay(50);
 }
 
 void powerOff() {
@@ -65,14 +58,13 @@ void powerOff() {
     leds[i] = CRGB::Black;
   }  
   FastLED.show();
-  delay(100);
+  delay(50);
 }
 
 void handlePowerState(AsyncWebServerRequest *req) {
-  // TODO: Fix the crashing when toggling
   int powerVal;
-  if (req->hasParam(POWER_INPUT)) {
-    powerVal = req->getParam(POWER_INPUT)->value().toInt();
+  if (req->hasParam("state")) {
+    powerVal = req->getParam("state")->value().toInt();
     poweredOn = powerVal == 1;
     if (!poweredOn) {
       powerOff();
@@ -90,34 +82,50 @@ const char index_html[] PROGMEM = R"rawliteral(
   <head>
     <title>The Sims Plumbob LED Controller</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      html { font-family: Arial; display: inline-block; text-align: center; }
+      body { margin: 0px auto; padding-bottom: 15px; }
+      .slider { flex-grow: 1; }
+    </style>
   </head>
   <body>
     <h2>The Sims Plumbob LED Controller</h2>
-    <p>
-      <input type="checkbox" id="powerState" name="powerState" checked onchange="togglePower(this)" />
-      <label for="powerState">Power: </label>
-    </p><br>
-    <input type="range" name="slider" min="0" max="255" step="5" value="0" onchange="handleSlider(this)" />
-    <label for="slider">Slider</label><br>
+    <div align="center">
+      <div id="num_clients"></div>
+      <label for="num_clients">Clients: </label><br>
 
-    <span name="num_clients"></span>
-    <label for="num_clients">Clients: </label>
-    <br>
+      <input type="checkbox" id="powerState" name="powerState" checked onchange="togglePower(this)" />
+      <label for="powerState">Power: </label><br>
+
+      <input type="range" class="slider" name="slider" min="0" max="255" step="5" value="0" onchange="handleSlider(this)" />
+      <label for="slider">Slider</label><br>
+
+      <input type="range" class="slider" name="brightness" min="0" max="100" value="100" onchange="handleBrightness(this)" />
+      <label for="brightness">Brightness</label><br>
+    </div>
     <script>
       function togglePower(e) {
-        var xhr = new XMLHttpRequest();
+        let xhr = new XMLHttpRequest();
         if (e.checked) {
-          xhr.open("GET", "/power?powerState=1", true);
+          xhr.open("GET", "/power?state=1", true);
         } else {
-          xhr.open("GET", "/power?powerState=0", true);
+          xhr.open("GET", "/power?state=0", true);
         }
         xhr.send();
       }
 
       function handleSlider(e) {
-        var xhr = new XMLHttpRequest();
-        xhr.open("GET", "/color?slider=" + e.value, true);
+        let xhr = new XMLHttpRequest();
+        xhr.open("GET", "/color?value=" + e.value, true);
         xhr.send();
+        e.preventDefault();
+      }
+
+      function handleBrightness(e) {
+        let xhr = new XMLHttpRequest();
+        xhr.open("GET", "/brightness?value=" + e.value, true);
+        xhr.send();
+        e.preventDefault();
       }
     </script>
   </body>
@@ -141,11 +149,12 @@ void onStationDisconnected(const WiFiEventSoftAPModeStationDisconnected& evt) {
 
 void setup() {
   pinMode(CONTROL_PIN, OUTPUT);
-  Serial.begin(9600);
+  Serial.begin(115200);
+  delay(500);
+
   LEDS.setBrightness(brightness);
   LEDS.addLeds<WS2812B, CONTROL_PIN, GRB>(leds, LED_COUNT);
   LEDS.show();
-  delay(1000);
   Serial.println('\n');
 
   WiFi.softAP(AP_SSID, AP_PSK, 1, false, 2);
@@ -169,7 +178,6 @@ void setup() {
 
   // int connections = WiFi.softAPgetStationNum();
   // Serial.println(connections);
-  // delay(1000);
 
   // Set up routes
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *req) {
@@ -180,10 +188,22 @@ void setup() {
   server.on("/power", HTTP_GET, handlePowerState);
 
   server.on("/color", HTTP_GET, [](AsyncWebServerRequest *req){
-    // TODO: Fix this slider changing multiple times...
-    slider_val = req->getParam(SLIDER_INPUT)->value().toInt();
-    Serial.println(slider_val);
-    powerOn();
+    if (req->hasParam("value")) {
+      color_val = req->getParam("value")->value().toInt();
+      Serial.println(color_val);
+      powerOn(); 
+    }
+    req->send(200, "text/plain", "OK");
+  });
+
+  server.on("/brightness", HTTP_GET, [](AsyncWebServerRequest *req){
+    if (req->hasParam("value")) {
+      brightness = req->getParam("value")->value().toInt();
+      Serial.println(brightness);
+      LEDS.setBrightness(brightness);
+      LEDS.show();
+    }
+    req->send(200, "text/plain", "OK");
   });
 }
 
