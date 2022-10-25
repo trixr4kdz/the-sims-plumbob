@@ -4,6 +4,9 @@
 #include <ESPAsyncTCP.h>
 #include <FastLED.h>
 
+// In case something goes wrong...
+const bool DEBUG_MODE = false;
+
 AsyncWebServer server(80);
 
 // Set Access Point creds
@@ -72,8 +75,11 @@ void handlePowerState(AsyncWebServerRequest *req) {
       powerOn();
     }
   }
-  Serial.print("poweredOn: ");
-  Serial.println(poweredOn);
+  if (DEBUG_MODE) {
+    Serial.print("poweredOn: ");
+    Serial.println(poweredOn); 
+  }
+
   req->send(200, "text/plain", "OK");
 }
 
@@ -149,21 +155,25 @@ void onStationDisconnected(const WiFiEventSoftAPModeStationDisconnected& evt) {
 
 void setup() {
   pinMode(CONTROL_PIN, OUTPUT);
-  Serial.begin(115200);
-  delay(500);
+  WiFi.softAP(AP_SSID, AP_PSK, 1, false, 2);
+
+  if (DEBUG_MODE) {
+    Serial.begin(9600);
+
+    Serial.print("Access Point \"");
+    Serial.print(ssid);
+    Serial.println("\" started");
+
+    Serial.print("IP address: \t");
+    Serial.println(WiFi.softAPIP());
+  } else {
+    Serial.begin(115200);
+  }
 
   LEDS.setBrightness(brightness);
   LEDS.addLeds<WS2812B, CONTROL_PIN, GRB>(leds, LED_COUNT);
   LEDS.show();
-  Serial.println('\n');
-
-  WiFi.softAP(AP_SSID, AP_PSK, 1, false, 2);
-  Serial.print("Access Point \"");
-  Serial.print(ssid);
-  Serial.println("\" started");
-
-  Serial.print("IP address: \t");
-  Serial.println(WiFi.softAPIP());
+  delay(500);
 
   // Call "onStationConnected" each time a station connects
   stationConnectedHandler = WiFi.onSoftAPModeStationConnected(&onStationConnected);
@@ -172,17 +182,12 @@ void setup() {
 
   server.onNotFound(handleNotFound);
 
-  server.begin();
-  Serial.println("HTTP server started\n");
-  powerOn();
-
   // int connections = WiFi.softAPgetStationNum();
   // Serial.println(connections);
 
   // Set up routes
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *req) {
     req->send_P(200, "text/html", index_html);
-    Serial.println("landing");
   });
 
   server.on("/power", HTTP_GET, handlePowerState);
@@ -190,8 +195,11 @@ void setup() {
   server.on("/color", HTTP_GET, [](AsyncWebServerRequest *req){
     if (req->hasParam("value")) {
       color_val = req->getParam("value")->value().toInt();
+      powerOn();
+    }
+
+    if (DEBUG_MODE) {
       Serial.println(color_val);
-      powerOn(); 
     }
     req->send(200, "text/plain", "OK");
   });
@@ -199,12 +207,22 @@ void setup() {
   server.on("/brightness", HTTP_GET, [](AsyncWebServerRequest *req){
     if (req->hasParam("value")) {
       brightness = req->getParam("value")->value().toInt();
-      Serial.println(brightness);
       LEDS.setBrightness(brightness);
       LEDS.show();
     }
+
+    if (DEBUG_MODE) {
+      Serial.println(brightness);
+    }
     req->send(200, "text/plain", "OK");
   });
+
+  server.begin();
+  powerOn();
+
+  if (DEBUG_MODE) {
+   Serial.println("HTTP server started\n");
+  }
 }
 
 void loop() {}
