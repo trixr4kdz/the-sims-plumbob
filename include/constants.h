@@ -43,7 +43,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 
       <form action="" onsubmit="handleUnsupervisedMode()">
         <label for="unsupervisedMode">Unsupervised Mode: </label>
-        <input type="text" name="duration" value="1" id="duration"> min</input>
+        <input type="number" name="duration" min="0" max="300" value="1" id="duration"> min</input>
         <input type="submit" value="Unsupervised Mode" />
       </form>
     </div>
