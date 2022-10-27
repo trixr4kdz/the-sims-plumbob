@@ -15,7 +15,7 @@ const bool DEBUG_MODE = false;
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML><html>
   <head>
-    <title>The Sims Plumbob LED Controller</title>
+    <title>trixr4kdz Plumbob LED Controller</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
       html { font-family: Arial; display: inline-block; text-align: center; }

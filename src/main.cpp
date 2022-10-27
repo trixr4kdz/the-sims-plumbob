@@ -196,7 +196,7 @@ void loop() {
       Serial.println("currentTime: " + currentTime);
       Serial.println("millis(): " + millis());
     }
-    if (millis() - currentTime >= 1000 * unsupervisedDurationInMin) { // multiply to extend it maybe???
+    if (millis() - currentTime >= 1000) {
       color_val = constrain(color_val + colorChangePerSec, 0, 255);
       powerOn();
       currentTime = millis();
