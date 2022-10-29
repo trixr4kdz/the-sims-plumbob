@@ -29,7 +29,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     <div align="center">
       <div id="power">
         <label for="powerState">Power: </label>
-        <input type="checkbox" id="powerState" name="powerState" checked onchange="togglePower(this)" />
+        <input type="checkbox" name="powerState" checked onchange="togglePower(this)" />
         <br>
       </div>
 
