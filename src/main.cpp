@@ -28,9 +28,8 @@ uint8_t brightness = 100;
 
 bool poweredOn = true;
 bool unsupervised = false;
-uint8_t unsupervisedDurationInMin;;
+float unsupervisedDurationInMin;;
 float colorChangePerSec = 0.0;
-// uint8_t colorChangePerSec;
 
 CRGBArray<LED_COUNT> leds;
 
@@ -113,9 +112,9 @@ void handleBrightness(AsyncWebServerRequest *req) {
 
 void handleUnsupervised(AsyncWebServerRequest *req) {
   if (req->hasParam("duration")) {
-    unsupervisedDurationInMin = req->getParam("duration")->value().toInt();
+    unsupervisedDurationInMin = req->getParam("duration")->value().toFloat();
     unsupervised = true;
-    colorChangePerSec = 255 / (unsupervisedDurationInMin * 60);
+    colorChangePerSec = 255.0 / (unsupervisedDurationInMin * 60.0);
 
     // reset colorVal
     colorVal = 0;
