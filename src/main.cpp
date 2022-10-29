@@ -110,14 +110,32 @@ void handleBrightness(AsyncWebServerRequest *req) {
   req->send(200, "text/plain", "OK"); 
 }
 
+void handleUnsupervised(AsyncWebServerRequest *req) {
+  if (req->hasParam("duration")) {
+    unsupervisedDurationInMin = req->getParam("duration")->value().toInt();
+    unsupervised = true;
+    colorChangePerSec = (uint8_t) ceil(255 / (unsupervisedDurationInMin * 60));
+
+    // reset color_val
+    color_val = 0;
+    powerOn();
+  }
+
+  if(DEBUG_MODE) {
+    Serial.print("unsupervised duration: ");
+    Serial.println(unsupervisedDurationInMin);
+  }
+  req->send(200, "text/plain", "OK");
+}
+
 void onStationConnected(const WiFiEventSoftAPModeStationConnected& evt) {
-  connections++;
+  connections = WiFi.softAPgetStationNum();
   Serial.print("Station connected: ");
   Serial.println(macToString(evt.mac));
 }
 
 void onStationDisconnected(const WiFiEventSoftAPModeStationDisconnected& evt) {
-  connections--;
+  connections = WiFi.softAPgetStationNum();
   Serial.print("Station disconnected: ");
   Serial.println(macToString(evt.mac));
 }
@@ -125,6 +143,7 @@ void onStationDisconnected(const WiFiEventSoftAPModeStationDisconnected& evt) {
 void setup() {
   pinMode(CONTROL_PIN, OUTPUT);
   WiFi.softAP(AP_SSID, AP_PSK, 1, false, 2);
+  delay(500);
 
   if (DEBUG_MODE) {
     Serial.begin(9600);
@@ -151,9 +170,6 @@ void setup() {
 
   server.onNotFound(handleNotFound);
 
-  // int connections = WiFi.softAPgetStationNum();
-  // Serial.println(connections);
-
   // Set up routes
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *req) {
     req->send_P(200, "text/html", index_html);
@@ -162,27 +178,15 @@ void setup() {
   server.on("/power", HTTP_GET, handlePowerState);
   server.on("/color", HTTP_GET, handleColor);
   server.on("/brightness", HTTP_GET, handleBrightness);
-
-  server.on("/unsupervised", HTTP_GET, [](AsyncWebServerRequest *req){
-    if (req->hasParam("duration")) {
-      unsupervisedDurationInMin = req->getParam("duration")->value().toInt();
-      unsupervised = true;
-      colorChangePerSec = (uint8_t) ceil(255 / (unsupervisedDurationInMin * 60));
-
-      // reset color_val
-      color_val = 0;
-      powerOn();
-    }
-
-    if(DEBUG_MODE) {
-      Serial.print("unsupervised duration: ");
-      Serial.println(unsupervisedDurationInMin);
-    }
-    req->send(200, "text/plain", "OK");
-  });
+  server.on("/unsupervised", HTTP_GET, handleUnsupervised);
 
   server.begin();
   powerOn();
+  delay(250);
+  powerOff();
+  delay(250);
+  powerOn();
+  delay(250);
 
   if (DEBUG_MODE) {
    Serial.println("HTTP server started\n");

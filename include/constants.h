@@ -20,32 +20,43 @@ const char index_html[] PROGMEM = R"rawliteral(
     <style>
       html { font-family: Arial; display: inline-block; text-align: center; }
       body { margin: 0px auto; padding-bottom: 15px; }
+      div { margin: 30px auto; display: block; }
       .slider { margin: 0px auto; flex-grow: 1; }
     </style>
   </head>
   <body>
-    <h2>The Sims Plumbob LED Controller</h2>
+    <h2>trixr4kdz Plumbob LED Controller</h2>
     <div align="center">
-      <div id="num_clients"></div>
-      <label for="num_clients">Clients: </label><br>
+      //<div>
+      //  <div id="num_clients"></div>
+      //  <label for="num_clients">Clients: </label><br>
+      //</div>
 
-      <label for="powerState">Power: </label>
-      <input type="checkbox" id="powerState" name="powerState" checked onchange="togglePower(this)" />
-      <br>
+      <div id="power">
+        <label for="powerState">Power: </label>
+        <input type="checkbox" id="powerState" name="powerState" checked onchange="togglePower(this)" />
+        <br>
+      </div>
 
-      <label for="slider">Color: </label>
-      <input type="range" class="slider" name="slider" min="0" max="255" step="5" value="0" onchange="handleSlider(this)" />
-      <br>
+      <div id="colorSlider">
+        <label for="slider">Color: </label>
+        <input type="range" class="slider" name="slider" min="0" max="255" step="5" value="0" onchange="handleSlider(this)" />
+        <br>
+      </div>
 
-      <label for="brightness">Brightness: </label>
-      <input type="range" class="slider" name="brightness" min="0" max="100" value="100" onchange="handleBrightness(this)" />
-      <br>
+      <div id="brightnessSlider" class="slider">
+        <label for="brightness">Brightness: </label>
+        <input type="range" class="slider" name="brightness" min="0" max="100" value="100" onchange="handleBrightness(this)" />
+        <br>
+      </div>
 
-      <form action="" onsubmit="handleUnsupervisedMode()">
-        <label for="unsupervisedMode">Unsupervised Mode: </label>
-        <input type="number" name="duration" min="0" max="300" value="1" id="duration"> min</input>
-        <input type="submit" value="Unsupervised Mode" />
-      </form>
+      <div>
+        <form action="" onsubmit="handleUnsupervisedMode()" id="unsupervised">
+          <label for="unsupervisedMode">Unsupervised Mode: </label>
+          <input type="number" name="duration" min="0" max="300" value="1" id="duration"> min</input>
+          <input type="submit" value="Unsupervised Mode" />
+        </form>
+      </div>
     </div>
     <script>
       function togglePower(e) {
@@ -78,6 +89,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         xhr.open("GET", "/unsupervised?duration=" + duration, true);
         xhr.send();
       }
+
     </script>
   </body>
 </html>)rawliteral";
