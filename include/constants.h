@@ -27,11 +27,6 @@ const char index_html[] PROGMEM = R"rawliteral(
   <body>
     <h2>trixr4kdz Plumbob LED Controller</h2>
     <div align="center">
-      //<div>
-      //  <div id="num_clients"></div>
-      //  <label for="num_clients">Clients: </label><br>
-      //</div>
-
       <div id="power">
         <label for="powerState">Power: </label>
         <input type="checkbox" id="powerState" name="powerState" checked onchange="togglePower(this)" />
