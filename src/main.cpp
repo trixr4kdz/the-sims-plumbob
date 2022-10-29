@@ -22,14 +22,15 @@ uint8_t connections = 0;
 // TODO: add effects? (like spinning diamond)
 // TODO: add label for number of clients
 
-uint8_t color_val = 0;
+float colorVal = 0.0;
 uint8_t num_clients = 0;
 uint8_t brightness = 100;
 
 bool poweredOn = true;
 bool unsupervised = false;
 uint8_t unsupervisedDurationInMin;;
-uint8_t colorChangePerSec;
+float colorChangePerSec = 0.0;
+// uint8_t colorChangePerSec;
 
 CRGBArray<LED_COUNT> leds;
 
@@ -49,7 +50,7 @@ void handleNotFound(AsyncWebServerRequest *req) {
 
 void powerOn() {
   for (int i = 0; i < LED_COUNT; i++) {
-    leds[i] = CRGB(0 + color_val, 255 - color_val, 0);
+    leds[i] = CRGB(0 + ((uint8_t) colorVal), 255 - ((uint8_t)colorVal), 0);
   }  
   FastLED.show();
   delay(50);
@@ -84,7 +85,7 @@ void handlePowerState(AsyncWebServerRequest *req) {
 
 void handleColor(AsyncWebServerRequest *req) {
   if (req->hasParam("value")) {
-    color_val = req->getParam("value")->value().toInt();
+    colorVal = req->getParam("value")->value().toInt();
     if (poweredOn) {
       powerOn();
     }
@@ -92,7 +93,7 @@ void handleColor(AsyncWebServerRequest *req) {
   }
 
   if (DEBUG_MODE) {
-    Serial.println(color_val);
+    Serial.println(colorVal);
   }
   req->send(200, "text/plain", "OK");
 }
@@ -114,10 +115,10 @@ void handleUnsupervised(AsyncWebServerRequest *req) {
   if (req->hasParam("duration")) {
     unsupervisedDurationInMin = req->getParam("duration")->value().toInt();
     unsupervised = true;
-    colorChangePerSec = (uint8_t) ceil(255 / (unsupervisedDurationInMin * 60));
+    colorChangePerSec = 255 / (unsupervisedDurationInMin * 60);
 
-    // reset color_val
-    color_val = 0;
+    // reset colorVal
+    colorVal = 0;
     powerOn();
   }
 
@@ -163,6 +164,8 @@ void setup() {
   LEDS.show();
   delay(500);
 
+  powerOn();
+
   // Call "onStationConnected" each time a station connects
   stationConnectedHandler = WiFi.onSoftAPModeStationConnected(&onStationConnected);
   // Call "onStationDisconnected" each time a station disconnects
@@ -181,13 +184,7 @@ void setup() {
   server.on("/unsupervised", HTTP_GET, handleUnsupervised);
 
   server.begin();
-  powerOn();
-  delay(250);
-  powerOff();
-  delay(250);
-  powerOn();
-  delay(250);
-
+ 
   if (DEBUG_MODE) {
    Serial.println("HTTP server started\n");
   }
@@ -201,7 +198,10 @@ void loop() {
       Serial.println("millis(): " + millis());
     }
     if (millis() - currentTime >= 1000) {
-      color_val = constrain(color_val + colorChangePerSec, 0, 255);
+      colorVal = colorVal + colorChangePerSec;
+      if (colorVal >= 255) {
+        colorVal = 255;
+      }
       powerOn();
       currentTime = millis();
     }
